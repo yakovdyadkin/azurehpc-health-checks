@@ -3,44 +3,18 @@ import sys
 import os
 import json
 import re
-import subprocess
+import pandas as pd
 from datetime import datetime
 from csv import DictReader
 from argparse import ArgumentParser
 from azure.identity import ManagedIdentityCredential, DefaultAzureCredential
 from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
-import pandas as pd
-import urllib
+
+from utils.helpers import run_command, get_instance_metadata
 
 VM_METADATA_FIELDS = ['vmSize', 'vmId', 'location']
 
-def get_request(url, data=None, headers={}):
-    req = urllib.request.Request(url, data = data, headers = headers)
-    try:
-        response = urllib.request.urlopen(req)
-    except urllib.error.URLError as e:
-        if hasattr(e, 'reason'):
-            print('Error! Failed to reach server')
-            print('Reason: ', e.reason)
-        elif hasattr(e, 'code'):
-            print('Error! The server couldn\'t fulfill the request.')
-            print('Error code: ', e.code)
-        return None
-    else:
-       return response.read().decode('utf-8') 
-
-def get_instance_metadata():
-    IMDS_URL = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
-    headers = {'Metadata': 'true'}
-    raw_data = get_request(IMDS_URL, headers = headers)
-    data_dict = {}
-    if raw_data:
-        try:
-            data_dict = json.loads(raw_data)
-        except json.JSONDecodeError as e:
-            print(f"Error! Failed failed to deserialize metadata:\n{e}")
-    return data_dict
 
 def ingest_health_log(health_file, creds, ingest_url, database, health_table_name):
     filename_parts = os.path.basename(health_file).split("-", maxsplit=2)
@@ -92,10 +66,6 @@ def ingest_debug_log(debug_file, creds, ingest_url, database, debug_table_name):
         ingest_client = QueuedIngestClient(KustoConnectionStringBuilder.with_azure_token_credential(ingest_url, creds))
         print(f"Ingesting health results from {os.path.basename(debug_file)} into {ingest_url} at {database}/{debug_table_name}")
         ingest_client.ingest_from_dataframe(df, IngestionProperties(database, debug_table_name))
-
-def run_command(cmd):
-    result = subprocess.run(cmd, capture_output=True, shell=True, text=True)
-    return result.stdout.strip()
 
 def get_nhc_json_formatted_result(results_file):
     def natural_sort_key(s):
