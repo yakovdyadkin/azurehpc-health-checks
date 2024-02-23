@@ -11,6 +11,28 @@ from azure.identity import ManagedIdentityCredential, DefaultAzureCredential
 from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
 import pandas as pd
+import urllib
+
+def _http_get(url, data=None, headers={}):
+    
+    req = urllib.request.Request(url, data = data, headers = headers)
+    try:
+        response = urllib.request.urlopen(req)
+    except urllib.error.URLError as e:
+        if hasattr(e, 'reason'):
+            print('Error! Failed to reach server')
+            print('Reason: ', e.reason)
+        elif hasattr(e, 'code'):
+            print('Error! The server couldn\'t fulfill the request.')
+            print('Error code: ', e.code)
+    else:
+       return response.read().decode('utf-8') 
+
+def get_instance_metadata():
+    IMDS_URL = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+    headers = {'Metadata': 'true'}
+    data = _http_get(IMDS_URL, headers = headers)
+    return data
 
 def ingest_health_log(health_file, creds, ingest_url, database, health_table_name):
     filename_parts = os.path.basename(health_file).split("-", maxsplit=2)
@@ -176,6 +198,8 @@ def ingest_results(results_file, creds, ingest_url, database, results_table_name
 
     vmId_bash_cmd = "curl  -H Metadata:true --max-time 10 -s \"http://169.254.169.254/metadata/instance/compute/vmId?api-version=2021-02-01&format=text\""
     vmId = run_command(vmId_bash_cmd)
+
+    # metadata = get_instance_metadata()
 
     vmName_bash_cmd = "hostname"
     vmName = run_command(vmName_bash_cmd)
