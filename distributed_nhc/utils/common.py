@@ -3,9 +3,20 @@ import urllib
 import subprocess
 
 
-def run_command(cmd):
-    result = subprocess.run(cmd, capture_output=True, shell=True, text=True)
-    return result.stdout.strip()
+def run_command(cmd, timeout=15):
+    print(cmd)
+    child = subprocess.Popen(cmd,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT,
+                             shell=True,
+                             text=True)
+    try:
+        result, errs = child.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        print(f"Command: {cmd}, Failed on timeout")
+        return ""
+    return result.strip()
 
 
 def get_request(url, data=None, headers={}):
@@ -21,7 +32,7 @@ def get_request(url, data=None, headers={}):
             print('Error code: ', e.code)
         return None
     else:
-       return response.read().decode('utf-8') 
+       return response.read().decode() 
 
 
 def get_instance_metadata():

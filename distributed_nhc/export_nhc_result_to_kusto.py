@@ -11,7 +11,7 @@ from azure.identity import ManagedIdentityCredential, DefaultAzureCredential
 from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
 
-from utils.helpers import run_command, get_instance_metadata
+from utils.common import run_command, get_instance_metadata
 
 VM_METADATA_FIELDS = ['vmSize', 'vmId', 'location']
 
@@ -72,7 +72,7 @@ def get_nhc_json_formatted_result(results_file):
         return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
     # check if GPU or CPU
-    processor_cmd = f"lspci | grep -iq NVIDIA" # if not empty, then GPU
+    processor_cmd = f"lspci | grep -i NVIDIA" # if not empty, then GPU
     processor_str = run_command(processor_cmd)
 
     processor = "GPU" if processor_str else "CPU"
@@ -171,10 +171,10 @@ def ingest_results(results_file, creds, ingest_url, database, results_table_name
         uuid = "-" + uuid # add the dash here instead of below; this way if 'uuid' is empty, we don't have a trailing dash
     full_uuid = f"nhc-{ts}{uuid}"
 
-    vmName_bash_cmd = "hostname"
-    vmName = run_command(vmName_bash_cmd)
+    vmName = run_command("hostname")
 
-    physhost = run_command("echo $(hostname) \"$(/opt/azurehpc/tools/kvp_client | grep Fully)\" | cut -d ':' -f 3 | cut -d ' ' -f 2 | sed 's/\"//g'")
+    kvp_client_cmd = "/opt/azurehpc/tools/kvp_client | grep Fully | cut -d ':' -f 3 | cut -d ' ' -f 2 | sed 's/\"//g'"
+    physhost = run_command(kvp_client_cmd)
     if not physhost:
         physhost = "not Mapped"
 
